@@ -14,6 +14,7 @@ bot = telebot.TeleBot(TOKEN)
 data = {}
 data_from_user = {}
 user_price = {}
+user_states={}
 
 scraper = cloudscraper.create_scraper(
     browser={
@@ -120,6 +121,7 @@ def get_price_from_wb(chat_id):
 
 @bot.message_handler(commands=['start'])
 def start(message):
+    user_states[message.chat.id] = {}
     bot.send_message(message.chat.id, f'Привет,\nнаш бот поможет тебе сэкономить на покупках Wildberries 😎')
     time.sleep(1)
     bot.send_message(message.chat.id, f'Для того чтобы начать:')
@@ -145,7 +147,6 @@ def restart_bot(message):
 def get_data_from_user(message):
     reply = message.text
     chat_id = message.chat.id
-    print(chat_id)
     if len(reply.split()) != 3:
         bot.send_message(chat_id, f'неправильный запрос')
         start(message)
@@ -153,13 +154,9 @@ def get_data_from_user(message):
         mark, category, articul = reply.strip().split(' ')
         data_from_user[chat_id] = {'mark': mark, 'category': category, 'articul': articul}
         bot.send_message(chat_id, f'Обрабатываем ваш запрос... это может занять время 🚀️')
-        print(chat_id)
-        print(data_from_user)
-
         get_data_from_wb(chat_id)
 
         try:
-            print(data[chat_id])
             bot.send_message(chat_id,
                              f"Нашли ваш товар, это:\nМодель-{data[chat_id]['wb_name']}\nБренд-{data[chat_id]['wb_brand']}"
                              f"\nАртикул-{data[chat_id]['wb_product_id']}\nЦена-{data[chat_id]['wb_price']}")
@@ -178,6 +175,7 @@ def get_data_from_user(message):
 def nextstep(message):
     reply = message.text.lower()
     if reply == 'да':
+        print(data[message.chat.id])
         bot.send_message(message.chat.id,
                          f'Сейчас ваш товар стоит: <b>{data[message.chat.id]["wb_price"]}₽</b>\nно мы знаем, что есть '
                          f'дни когда он стоит дешевле',
@@ -235,6 +233,7 @@ def check_user_price_down(chat_id):
             bot.send_message(chat_id, f"цена wb {wb_price}, цена юзера {user_price_compare}, наш товар{data[chat_id]}")
             if wb_price < user_price_compare:
                 bot.send_message(chat_id, f"Успейте купить! Цена стала ниже,\nтеперь {wb_price}₽")
+                bot.send_message(chat_id,f"Для отслеживания нового товара перезапустите бота")
                 break
             time.sleep(20)
     else:
