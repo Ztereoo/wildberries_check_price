@@ -1,20 +1,19 @@
 import json
-import telebot
-from telebot import types
 import os
 import sys
+import threading
+import time
+
+import cloudscraper
+import telebot
+from telebot import types
 
 from config import TOKEN
-
-import time
-import threading
-import cloudscraper
 
 bot = telebot.TeleBot(TOKEN)
 data = {}
 data_from_user = {}
 user_price = {}
-
 
 scraper = cloudscraper.create_scraper(
     browser={
@@ -31,14 +30,44 @@ cookies = {
     'is_cookies_accepted': '1;',
     'xcid': 'af3e5f0ce15183783bfe1512b44f9fca;',
     'is_adult_confirmed': 'true;',
-    'rfuid': 'NjkyNDcyNDUyLDEyNC4wNDM0NjYwNzExNDcxMiwtMjc5NTk3MzQzLC0xLC0xNTg0NDY5MTQxLFczc2libUZ0WlNJNklsQkVSaUJXYVdWM1pYSWlMQ0prWlhOamNtbHdkR2x2YmlJNklsQnZjblJoWW14bElFUnZZM1Z0Wlc1MElFWnZjbTFoZENJc0ltMXBiV1ZVZVhCbGN5STZXM3NpZEhsd1pTSTZJbUZ3Y0d4cFkyRjBhVzl1TDNCa1ppSXNJbk4xWm1acGVHVnpJam9pY0dSbUluMHNleUowZVhCbElqb2lkR1Y0ZEM5d1pHWWlMQ0p6ZFdabWFYaGxjeUk2SW5Ca1ppSjlYWDBzZXlKdVlXMWxJam9pUTJoeWIyMWxJRkJFUmlCV2FXVjNaWElpTENKa1pYTmpjbWx3ZEdsdmJpSTZJbEJ2Y25SaFlteGxJRVJ2WTNWdFpXNTBJRVp2Y20xaGRDSXNJbTFwYldWVWVYQmxjeUk2VzNzaWRIbHdaU0k2SW1Gd2NHeHBZMkYwYVc5dUwzQmtaaUlzSW5OMVptWnBlR1Z6SWpvaWNHUm1JbjBzZXlKMGVYQmxJam9pZEdWNGRDOXdaR1lpTENKemRXWm1hWGhsY3lJNkluQmtaaUo5WFgwc2V5SnVZVzFsSWpvaVEyaHliMjFwZFcwZ1VFUkdJRlpwWlhkbGNpSXNJbVJsYzJOeWFYQjBhVzl1SWpvaVVHOXlkR0ZpYkdVZ1JHOWpkVzFsYm5RZ1JtOXliV0YwSWl3aWJXbHRaVlI1Y0dWeklqcGJleUowZVhCbElqb2lZWEJ3YkdsallYUnBiMjR2Y0dSbUlpd2ljM1ZtWm1sNFpYTWlPaUp3WkdZaWZTeDdJblI1Y0dVaU9pSjBaWGgwTDNCa1ppSXNJbk4xWm1acGVHVnpJam9pY0dSbUluMWRmU3g3SW01aGJXVWlPaUpOYVdOeWIzTnZablFnUldSblpTQlFSRVlnVm1sbGQyVnlJaXdpWkdWelkzSnBjSFJwYjI0aU9pSlFiM0owWVdKc1pTQkViMk4xYldWdWRDQkdiM0p0WVhRaUxDSnRhVzFsVkhsd1pYTWlPbHQ3SW5SNWNHVWlPaUpoY0hCc2FXTmhkR2x2Ymk5d1pHWWlMQ0p6ZFdabWFYaGxjeUk2SW5Ca1ppSjlMSHNpZEhsd1pTSTZJblJsZUhRdmNHUm1JaXdpYzNWbVptbDRaWE1pT2lKd1pHWWlmVjE5TEhzaWJtRnRaU0k2SWxkbFlrdHBkQ0JpZFdsc2RDMXBiaUJRUkVZaUxDSmtaWE5qY21sd2RHbHZiaUk2SWxCdmNuUmhZbXhsSUVSdlkzVnRaVzUwSUVadmNtMWhkQ0lzSW0xcGJXVlVlWEJsY3lJNlczc2lkSGx3WlNJNkltRndjR3hwWTJGMGFXOXVMM0JrWmlJc0luTjFabVpwZUdWeklqb2ljR1JtSW4wc2V5SjBlWEJsSWpvaWRHVjRkQzl3WkdZaUxDSnpkV1ptYVhobGN5STZJbkJrWmlKOVhYMWQsV3lKeWRTSmQsMCwxLDAsMzAsMTQyNzUsOCwyMjcxMjY1MjAsMCwxLDAsLTQ5MTI3NTUyMyxSMjl2WjJ4bElFbHVZeTRnVG1WMGMyTmhjR1VnUjJWamEyOGdUV0ZqU1c1MFpXd2dOUzR3SUNoTllXTnBiblJ2YzJnN0lFbHVkR1ZzSUUxaFl5QlBVeUJZSURFd1h6RTFYemNwSUVGd2NHeGxWMlZpUzJsMEx6VXpOeTR6TmlBb1MwaFVUVXdzSUd4cGEyVWdSMlZqYTI4cElFTm9jbTl0WlM4eE1qQXVNQzR3TGpBZ1dXRkNjbTkzYzJWeUx6STBMakV1TUM0d0lGTmhabUZ5YVM4MU16Y3VNellnTWpBd016QXhNRGNnVFc5NmFXeHNZUT09LGV5SmphSEp2YldVaU9uc2lZWEJ3SWpwN0ltbHpTVzV6ZEdGc2JHVmtJanBtWVd4elpTd2lTVzV6ZEdGc2JGTjBZWFJsSWpwN0lrUkpVMEZDVEVWRUlqb2laR2x6WVdKc1pXUWlMQ0pKVGxOVVFVeE1SVVFpT2lKcGJuTjBZV3hzWldRaUxDSk9UMVJmU1U1VFZFRk1URVZFSWpvaWJtOTBYMmx1YzNSaGJHeGxaQ0o5TENKU2RXNXVhVzVuVTNSaGRHVWlPbnNpUTBGT1RrOVVYMUpWVGlJNkltTmhibTV2ZEY5eWRXNGlMQ0pTUlVGRVdWOVVUMTlTVlU0aU9pSnlaV0ZrZVY5MGIxOXlkVzRpTENKU1ZVNU9TVTVISWpvaWNuVnVibWx1WnlKOWZTd2lhVEU0YmlJNmUzMTlMQ0o1WVc1a1pYZ2lPbnNpYldWa2FXRWlPbnQ5TENKeVpXRmtZV0pwYkdsMGVTSTZlMzBzSW5CMVlteHBZMFpsWVhSMWNtVWlPbnNpVkhWeVltOUJjSEJUZEdGMFpTSTZleUpJUVZOZlFrVlVWRVZTWDFaRlVsTkpUMDRpT2lKb1lYTkNaWFIwWlhKV1pYSnphVzl1SWl3aVNVNWZVRkpQUjBWVFV5STZJbWx1VUhKdloyVnpjeUlzSWtsT1UxUkJURXhCVkVsUFRsOUZVbEpQVWlJNkltbHVjM1JoYkd4aGRHbHZia1Z5Y205eUlpd2lUa0ZXU1VkQlZFbFBUbDlVVDE5VlRrdE9UMWRPWDBGUVVFeEpRMEZVU1U5T0lqb2libUYyYVdkaGRHbHZibFJ2Vlc1cmJtOTNia0Z3Y0d4cFkyRjBhVzl1SWl3aVRrOVVYMGxPVTFSQlRFeEZSQ0k2SW01dmRFbHVjM1JoYkd4bFpDSXNJbEpGUVVSWlgwWlBVbDlWVTBVaU9pSnlaV0ZrZVVadmNsVnpaU0o5ZlgxOSw2NSwtMTI4NTU1MTMsMSwxLC0xLDE2OTk5NTQ4ODcsMTY5OTk1NDg4Nyw2MzU3ODA1MjYsOA', }
+    'rfuid': 'NjkyNDcyNDUyLDEyNC4wNDM0NjYwNzExNDcxMiwtMjc5NTk3MzQzLC0xLC0xNTg0NDY5MTQxLFczc2libUZ0WlNJNklsQkVSaUJXYVdWM'
+             '1pYSWlMQ0prWlhOamNtbHdkR2x2YmlJNklsQnZjblJoWW14bElFUnZZM1Z0Wlc1MElFWnZjbTFoZENJc0ltMXBiV1ZVZVhCbGN5STZXM3N'
+             'pZEhsd1pTSTZJbUZ3Y0d4cFkyRjBhVzl1TDNCa1ppSXNJbk4xWm1acGVHVnpJam9pY0dSbUluMHNleUowZVhCbElqb2lkR1Y0ZEM5d1pHW'
+             'WlMQ0p6ZFdabWFYaGxjeUk2SW5Ca1ppSjlYWDBzZXlKdVlXMWxJam9pUTJoeWIyMWxJRkJFUmlCV2FXVjNaWElpTENKa1pYTmpjbWx3ZEd'
+             'sdmJpSTZJbEJ2Y25SaFlteGxJRVJ2WTNWdFpXNTBJRVp2Y20xaGRDSXNJbTFwYldWVWVYQmxjeUk2VzNzaWRIbHdaU0k2SW1Gd2NHeHBZM'
+             'kYwYVc5dUwzQmtaaUlzSW5OMVptWnBlR1Z6SWpvaWNHUm1JbjBzZXlKMGVYQmxJam9pZEdWNGRDOXdaR1lpTENKemRXWm1hWGhsY3lJNkl'
+             'uQmtaaUo5WFgwc2V5SnVZVzFsSWpvaVEyaHliMjFwZFcwZ1VFUkdJRlpwWlhkbGNpSXNJbVJsYzJOeWFYQjBhVzl1SWpvaVVHOXlkR0ZpY'
+             'kdVZ1JHOWpkVzFsYm5RZ1JtOXliV0YwSWl3aWJXbHRaVlI1Y0dWeklqcGJleUowZVhCbElqb2lZWEJ3YkdsallYUnBiMjR2Y0dSbUlpd2l'
+             'jM1ZtWm1sNFpYTWlPaUp3WkdZaWZTeDdJblI1Y0dVaU9pSjBaWGgwTDNCa1ppSXNJbk4xWm1acGVHVnpJam9pY0dSbUluMWRmU3g3SW01a'
+             'GJXVWlPaUpOYVdOeWIzTnZablFnUldSblpTQlFSRVlnVm1sbGQyVnlJaXdpWkdWelkzSnBjSFJwYjI0aU9pSlFiM0owWVdKc1pTQkViMk4'
+             'xYldWdWRDQkdiM0p0WVhRaUxDSnRhVzFsVkhsd1pYTWlPbHQ3SW5SNWNHVWlPaUpoY0hCc2FXTmhkR2x2Ymk5d1pHWWlMQ0p6ZFdabWFYa'
+             'GxjeUk2SW5Ca1ppSjlMSHNpZEhsd1pTSTZJblJsZUhRdmNHUm1JaXdpYzNWbVptbDRaWE1pT2lKd1pHWWlmVjE5TEhzaWJtRnRaU0k2SWx'
+             'kbFlrdHBkQ0JpZFdsc2RDMXBiaUJRUkVZaUxDSmtaWE5qY21sd2RHbHZiaUk2SWxCdmNuUmhZbXhsSUVSdlkzVnRaVzUwSUVadmNtMWhkQ'
+             '0lzSW0xcGJXVlVlWEJsY3lJNlczc2lkSGx3WlNJNkltRndjR3hwWTJGMGFXOXVMM0JrWmlJc0luTjFabVpwZUdWeklqb2ljR1JtSW4wc2V'
+             '5SjBlWEJsSWpvaWRHVjRkQzl3WkdZaUxDSnpkV1ptYVhobGN5STZJbkJrWmlKOVhYMWQsV3lKeWRTSmQsMCwxLDAsMzAsMTQyNzUsOCwyM'
+             'jcxMjY1MjAsMCwxLDAsLTQ5MTI3NTUyMyxSMjl2WjJ4bElFbHVZeTRnVG1WMGMyTmhjR1VnUjJWamEyOGdUV0ZqU1c1MFpXd2dOUzR3SUN'
+             'oTllXTnBiblJ2YzJnN0lFbHVkR1ZzSUUxaFl5QlBVeUJZSURFd1h6RTFYemNwSUVGd2NHeGxWMlZpUzJsMEx6VXpOeTR6TmlBb1MwaFVUV'
+             'XdzSUd4cGEyVWdSMlZqYTI4cElFTm9jbTl0WlM4eE1qQXVNQzR3TGpBZ1dXRkNjbTkzYzJWeUx6STBMakV1TUM0d0lGTmhabUZ5YVM4MU1'
+             '6Y3VNellnTWpBd016QXhNRGNnVFc5NmFXeHNZUT09LGV5SmphSEp2YldVaU9uc2lZWEJ3SWpwN0ltbHpTVzV6ZEdGc2JHVmtJanBtWVd4e'
+             'lpTd2lTVzV6ZEdGc2JGTjBZWFJsSWpwN0lrUkpVMEZDVEVWRUlqb2laR2x6WVdKc1pXUWlMQ0pKVGxOVVFVeE1SVVFpT2lKcGJuTjBZV3hz'
+             'WldRaUxDSk9UMVJmU1U1VFZFRk1URVZFSWpvaWJtOTBYMmx1YzNSaGJHeGxaQ0o5TENKU2RXNXVhVzVuVTNSaGRHVWlPbnNpUTBGT1RrOV'
+             'VYMUpWVGlJNkltTmhibTV2ZEY5eWRXNGlMQ0pTUlVGRVdWOVVUMTlTVlU0aU9pSnlaV0ZrZVY5MGIxOXlkVzRpTENKU1ZVNU9TVTVISWpva'
+             'WNuVnVibWx1WnlKOWZTd2lhVEU0YmlJNmUzMTlMQ0o1WVc1a1pYZ2lPbnNpYldWa2FXRWlPbnQ5TENKeVpXRmtZV0pwYkdsMGVTSTZlMzBz'
+             'SW5CMVlteHBZMFpsWVhSMWNtVWlPbnNpVkhWeVltOUJjSEJUZEdGMFpTSTZleUpJUVZOZlFrVlVWRVZTWDFaRlVsTkpUMDRpT2lKb1lYTkN'
+             'aWFIwWlhKV1pYSnphVzl1SWl3aVNVNWZVRkpQUjBWVFV5STZJbWx1VUhKdloyVnpjeUlzSWtsT1UxUkJURXhCVkVsUFRsOUZVbEpQVWlJNk'
+             'ltbHVjM1JoYkd4aGRHbHZia1Z5Y205eUlpd2lUa0ZXU1VkQlZFbFBUbDlVVDE5VlRrdE9UMWRPWDBGUVVFeEpRMEZVU1U5T0lqb2libUYyY'
+             'VdkaGRHbHZibFJ2Vlc1cmJtOTNia0Z3Y0d4cFkyRjBhVzl1SWl3aVRrOVVYMGxPVTFSQlRFeEZSQ0k2SW01dmRFbHVjM1JoYkd4bFpDSXNJb'
+             'EpGUVVSWlgwWlBVbDlWVTBVaU9pSnlaV0ZrZVVadmNsVnpaU0o5ZlgxOSw2NSwtMTI4NTU1MTMsMSwxLC0xLDE2OTk5NTQ4ODcsMTY5OTk1N'
+             'Dg4Nyw2MzU3ODA1MjYsOA', }
 
 
 def get_data_from_wb(chat_id):
 
     try:
         html = scraper.get(
-            f"https://search.wb.ru/exactmatch/ru/common/v5/search?ab_testing=false&appType=1&curr=rub&dest=-1257786&query={data_from_user[chat_id]['mark']}%{data_from_user[chat_id]['category']}%{data_from_user[chat_id]['articul']}&resultset=catalog&sort=popular&spp=30&suppressSpellcheck=false",
+            f"https://search.wb.ru/exactmatch/ru/common/v5/search?ab_testing=false&appType=1&curr=rub&dest=-1257786&que"
+            f"ry={data_from_user[chat_id]['mark']}%{data_from_user[chat_id]['category']}"
+            f"%{data_from_user[chat_id]['articul']}&resultset=catalog&sort=popular&spp=30&suppressSpellcheck=false",
             cookies=cookies).text
         res = json.loads(html)
     except Exception as e:
@@ -69,7 +98,10 @@ def get_data_from_wb(chat_id):
 def get_price_from_wb(chat_id):
     try:
         html = scraper.get(
-            f"https://search.wb.ru/exactmatch/ru/common/v5/search?ab_testing=false&appType=1&curr=rub&dest=-1257786&query={data_from_user[chat_id]['mark']}%{data_from_user[chat_id]['category']}%{data_from_user[chat_id]['articul']}&resultset=catalog&sort=popular&spp=30&suppressSpellcheck=false",cookies=cookies).text
+            f"https://search.wb.ru/exactmatch/ru/common/v5/search?ab_testing=false&appType=1&curr=rub&dest=-1257786&quer"
+            f"y={data_from_user[chat_id]['mark']}%{data_from_user[chat_id]['category']}"
+            f"%{data_from_user[chat_id]['articul']}&resultset=catalog&sort=popular&spp=30&suppressSpellcheck=fa"
+            f"lse",cookies=cookies).text
         res = json.loads(html)
     except Exception as e:
         print(f'Сайт wb не рад такому запросу, ошибка{e}')
@@ -127,6 +159,7 @@ def get_data_from_user(message):
         get_data_from_wb(chat_id)
 
         try:
+            print(data[chat_id])
             bot.send_message(chat_id,
                              f"Нашли ваш товар, это:\nМодель-{data[chat_id]['wb_name']}\nБренд-{data[chat_id]['wb_brand']}"
                              f"\nАртикул-{data[chat_id]['wb_product_id']}\nЦена-{data[chat_id]['wb_price']}")
@@ -170,7 +203,10 @@ def nextstep(message):
         markup.add(btn_1, btn_2)
         bot.send_message(message.chat.id, f'Что вам подходит?', reply_markup=markup)
         # bot.register_next_step_handler(message, get_user_price)
+    elif reply=='замена':
+        start(message)
     else:
+        bot.send_message(message.chat.id,f'Неправильный запрос')
         start(message)
 
 
