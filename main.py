@@ -15,7 +15,7 @@ bot = telebot.TeleBot(TOKEN)
 data = {}
 data_from_user = {}
 user_price = {}
-user_states={}
+
 
 scraper = cloudscraper.create_scraper(
     browser={
@@ -74,12 +74,12 @@ def get_data_from_wb(chat_id):
 
     except Exception as e:
         print(f'Сайт wb не рад такому запросу, ошибка{e}')
-    items = res.get('data', {}).get('products', [])[0].get('sizes', {})
 
-    if res.get('data',{}).get('products',[])==[] or any('price' in item for item in items)is False:
+    if res.get('data',{}).get('products',[])==[] or any('price' in item for item in res.get('data', {}).get('products', [])[0].get('sizes', {})) is False:
         return None
 
     else:
+        items = res.get('data', {}).get('products', [])[0].get('sizes', {})
         items_with_price = [item for item in items if 'price' in item]
         wb_name = res.get('data', {}).get('products', [])[0]['name']
         wb_product_id = res.get('data', {}).get('products', [])[0]['id']
@@ -93,34 +93,29 @@ def get_data_from_wb(chat_id):
                          'wb_brand': wb_brand}
 
 
-
-
 def get_price_from_wb(chat_id):
     try:
         html = scraper.get(
-            f"https://search.wb.ru/exactmatch/ru/common/v5/search?ab_testing=false&appType=1&curr=rub&dest=-1257786&quer"
-            f"y={data_from_user[chat_id]['mark']}%{data_from_user[chat_id]['category']}"
-            f"%{data_from_user[chat_id]['articul']}&resultset=catalog&sort=popular&spp=30&suppressSpellcheck=fa"
-            f"lse",cookies=cookies).text
+            f"https://card.wb.ru/cards/v2/detail?appType=1&curr=rub&dest=-1257786&spp="
+            f"30&nm={data_from_user[chat_id]['articul']}",
+            cookies=cookies).text
         res = json.loads(html)
+
     except Exception as e:
         print(f'Сайт wb не рад такому запросу, ошибка{e}')
-    wb_price = 0
 
-    for i in res['data']['products']:
-        if i['id'] == int(data_from_user[chat_id]['articul']):
-            wb_price = int(i['sizes'][0]['price']['product'] / 100)
 
-    if wb_price != None:
-        return wb_price
+    if res.get('data',{}).get('products',[])==[] or any('price' in item for item in res.get('data', {}).get('products', [])[0].get('sizes', {})) is False:
+        return None
     else:
-        time.sleep(2)
-        get_price_from_wb(chat_id)
-
+        items = res.get('data', {}).get('products', [])[0].get('sizes', {})
+        items_with_price = [item for item in items if 'price' in item]
+        wb_price = int(items_with_price[0]['price']['product'] / 100)
+        return wb_price
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    user_states[message.chat.id] = {}
+
     bot.send_message(message.chat.id, f'Привет,\nнаш бот поможет тебе сэкономить на покупках Wildberries 😎')
     time.sleep(1)
     bot.send_message(message.chat.id, f'Для того чтобы начать:')
@@ -159,7 +154,6 @@ def get_data_from_user(message):
             bot.register_next_step_handler(message, nextstep)
         except KeyError as e:
             print(f'ошибка {e}')
-
             bot.send_message(chat_id, f'Похоже на WB нет такого товара, или он закончился')
             time.sleep(2)
             start(message)
@@ -203,8 +197,10 @@ def nextstep(message):
 
 def check_price_down(chat_id):
     wb_price = get_price_from_wb(chat_id)
-
-    if wb_price > 0 and data[chat_id]['wb_price'] > 0:
+    if wb_price is None:
+        bot.send_message(chat_id,f'упс.. кажется товар закончился')
+        start(message)
+    else:
         while True:
             bot.send_message(chat_id,
                              f"цена wb {wb_price}, старая цена {data[chat_id]['wb_price']},наш товар{data[chat_id]}")
@@ -213,24 +209,27 @@ def check_price_down(chat_id):
                     bot.send_message(i,
                                      f"Успейте купить!\n Цена стала ниже,\nтеперь {wb_price}₽ вместо {data[i]['wb_price']}₽ ")
                     data[chat_id]['wb_price'] = wb_price
+                    bot.send_message(chat_id, f"Для отслеживания нового товара напишите /start")
+                    break
             time.sleep(20)
-    else:
-        check_price_down(chat_id)
 
 
 def check_user_price_down(chat_id):
     user_price_compare = user_price[chat_id]
     wb_price = get_price_from_wb(chat_id)
-    if wb_price > 0 and user_price_compare > 0:
+    if wb_price is None:
+        bot.send_message(chat_id,f'упс.. кажется товар закончился')
+        start(message)
+
+    else:
         while True:
             bot.send_message(chat_id, f"цена wb {wb_price}, цена юзера {user_price_compare}, наш товар{data[chat_id]}")
             if wb_price < user_price_compare:
                 bot.send_message(chat_id, f"Успейте купить! Цена стала ниже,\nтеперь {wb_price}₽")
-                bot.send_message(chat_id,f"Для отслеживания нового товара перезапустите бота")
+                bot.send_message(chat_id, f"Для отслеживания нового товара напишите /start")
                 break
             time.sleep(20)
-    else:
-        check_user_price_down(chat_id)
+
 
 
 @bot.callback_query_handler(func=lambda call: True)
