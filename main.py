@@ -3,6 +3,7 @@ import os
 import sys
 import threading
 import time
+import string
 
 import cloudscraper
 import telebot
@@ -66,34 +67,32 @@ def get_data_from_wb(chat_id):
 
     try:
         html = scraper.get(
-            f"https://search.wb.ru/exactmatch/ru/common/v5/search?ab_testing=false&appType=1&curr=rub&dest=-1257786&que"
-            f"ry={data_from_user[chat_id]['mark']}%{data_from_user[chat_id]['category']}"
-            f"%{data_from_user[chat_id]['articul']}&resultset=catalog&sort=popular&spp=30&suppressSpellcheck=false",
+            f"https://card.wb.ru/cards/v2/detail?appType=1&curr=rub&dest=-1257786&spp="
+            f"30&nm={data_from_user[chat_id]['articul']}",
             cookies=cookies).text
         res = json.loads(html)
+
     except Exception as e:
         print(f'Сайт wb не рад такому запросу, ошибка{e}')
+    items = res.get('data', {}).get('products', [])[0].get('sizes', {})
 
-    wb_product_id = ''
-    wb_price = ''
-    wb_brand = ''
-    wb_name = ''
+    if res.get('data',{}).get('products',[])==[] or any('price' in item for item in items)is False:
+        return None
 
-    for i in res['data']['products']:
-        if i['id'] == int(data_from_user[chat_id]['articul']):
-            wb_product_id = i['id']
-            wb_name = i['name']
-            wb_brand = i['brand']
-            wb_price = int(i['sizes'][0]['price']['product'] / 100)
-        else:
-            return None
-
-    if wb_price == '':
-        time.sleep(2)
-        get_data_from_wb(chat_id)
     else:
-        data[chat_id] = {'chat_id': chat_id, 'wb_product_id': wb_product_id, 'wb_price': wb_price, 'wb_name': wb_name,
+        items_with_price = [item for item in items if 'price' in item]
+        wb_name = res.get('data', {}).get('products', [])[0]['name']
+        wb_product_id = res.get('data', {}).get('products', [])[0]['id']
+        wb_brand = res.get('data', {}).get('products', [])[0]['brand']
+        wb_price = int(items_with_price[0]['price']['product'] / 100)
+
+        data[chat_id] = {'chat_id': chat_id,
+                         'wb_product_id': wb_product_id,
+                         'wb_price': wb_price,
+                         'wb_name': wb_name,
                          'wb_brand': wb_brand}
+
+
 
 
 def get_price_from_wb(chat_id):
@@ -126,13 +125,7 @@ def start(message):
     time.sleep(1)
     bot.send_message(message.chat.id, f'Для того чтобы начать:')
     time.sleep(1)
-    bot.send_message(message.chat.id, f'введите марку товара, например\n<b>Nike</b>', parse_mode='HTML')
-    bot.send_message(message.chat.id, f'введите категорию товара, например\n<b>Обувь</b>', parse_mode='HTML')
-    bot.send_message(message.chat.id, f'введите артикул товара на сайте Wildberries, например\n<b>161110984</b>',
-                     parse_mode='HTML')
-    bot.send_message(message.chat.id,
-                     f'Пример хорошего запроса:\n<b>adidas обувь 171612584</b> или\n<b>beko техника 119998055</b>\n<i>❗'
-                     f'данные вводятся через пробел- это Важный момент</i>',
+    bot.send_message(message.chat.id, f'введите артикул товара на сайте Wildberries, например\n<b>171620775</b>',
                      parse_mode='HTML')
     bot.register_next_step_handler(message, get_data_from_user)
 
@@ -147,16 +140,16 @@ def restart_bot(message):
 def get_data_from_user(message):
     reply = message.text
     chat_id = message.chat.id
-    if len(reply.split()) != 3:
-        bot.send_message(chat_id, f'неправильный запрос')
+    if any(char.isalpha() for char in reply):
+        bot.send_message(chat_id, f'неправильный запрос, в артикуле должны быть только цифры')
         start(message)
     else:
-        mark, category, articul = reply.strip().split(' ')
-        data_from_user[chat_id] = {'mark': mark, 'category': category, 'articul': articul}
+        data_from_user[chat_id] = {'articul': reply}
         bot.send_message(chat_id, f'Обрабатываем ваш запрос... это может занять время 🚀️')
-        get_data_from_wb(chat_id)
+
 
         try:
+            get_data_from_wb(chat_id)
             bot.send_message(chat_id,
                              f"Нашли ваш товар, это:\nМодель-{data[chat_id]['wb_name']}\nБренд-{data[chat_id]['wb_brand']}"
                              f"\nАртикул-{data[chat_id]['wb_product_id']}\nЦена-{data[chat_id]['wb_price']}")
@@ -167,9 +160,9 @@ def get_data_from_user(message):
         except KeyError as e:
             print(f'ошибка {e}')
 
-            bot.send_message(chat_id, f'Wildberries не спешит отвечать=) попробуем снова')
+            bot.send_message(chat_id, f'Похоже на WB нет такого товара, или он закончился')
             time.sleep(2)
-            get_data_from_user(message)
+            start(message)
 
 
 def nextstep(message):
