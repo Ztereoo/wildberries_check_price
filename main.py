@@ -1,9 +1,6 @@
 import json
-import os
-import sys
 import threading
 import time
-import string
 
 import cloudscraper
 import telebot
@@ -125,13 +122,6 @@ def start(message):
     bot.register_next_step_handler(message, get_data_from_user)
 
 
-@bot.message_handler(commands=['restart'])
-def restart_bot(message):
-    bot.reply_to(message, "Бот перезапустился...")
-    bot.send_message(message.chat.id, f'Введите /start чтобы начать еще раз')
-    os.execv(sys.executable, ['python'] + sys.argv)
-
-
 def get_data_from_user(message):
     reply = message.text
     chat_id = message.chat.id
@@ -141,7 +131,6 @@ def get_data_from_user(message):
     else:
         data_from_user[chat_id] = {'articul': reply}
         bot.send_message(chat_id, f'Обрабатываем ваш запрос... это может занять время 🚀️')
-
 
         try:
             get_data_from_wb(chat_id)
@@ -158,28 +147,24 @@ def get_data_from_user(message):
             time.sleep(2)
             start(message)
 
-
 def nextstep(message):
     reply = message.text.lower()
     if reply == 'да':
-        print(data[message.chat.id])
         bot.send_message(message.chat.id,
                          f'Сейчас ваш товар стоит: <b>{data[message.chat.id]["wb_price"]}₽</b>\nно мы знаем, что есть '
                          f'дни когда он стоит дешевле',
                          parse_mode='HTML')
         bot.send_message(message.chat.id,
-                         f'Например Стирально-сушильная машина Beko с артикулом 119998055 на прошлой неделе стоила на '
-                         f'<b>2215</b> рублей дешевле',
+                         f'Например Стирально-сушильная машина Samsung с артикулом 181657425 недавно стоила на '
+                         f'<b>3131</b> рублей дешевле',
                          parse_mode='HTML')
         time.sleep(1)
         bot.send_message(message.chat.id,
-                         f'бот может присылать уведомление- о любом снижении цены\nДля этого нажмите кнопку <b>Любое '
-                         f'снижение цены</b>',
-                         parse_mode='HTML')
+                         f'Кнопка <b>Любое снижение цены</b>, пришлет уведомление о любом снижении цены', parse_mode='HTML')
+
         bot.send_message(message.chat.id,
-                         f'Если вы хотите указать цену самостоятельно\n<b>отправьте боту вашу цену</b>, и далее нажмите'
-                         f'\n<b>Укажу сумму самостоятельно</b>',
-                         parse_mode='HTML')
+                         f'Кнопка <b>Укажу сумму самостоятельно</b>, укажите вашу цену- и бот пришлет уведомление когда '
+                         f'товар снизится до желаемой цены',parse_mode='HTML')
         time.sleep(1)
 
         markup = types.InlineKeyboardMarkup(row_width=1)
@@ -194,7 +179,6 @@ def nextstep(message):
         bot.send_message(message.chat.id,f'Неправильный запрос')
         start(message)
 
-
 def check_price_down(chat_id):
     wb_price = get_price_from_wb(chat_id)
     if wb_price is None:
@@ -202,8 +186,6 @@ def check_price_down(chat_id):
         start(message)
     else:
         while True:
-            bot.send_message(chat_id,
-                             f"цена wb {wb_price}, старая цена {data[chat_id]['wb_price']},наш товар{data[chat_id]}")
             for i in data:
                 if wb_price < data[chat_id]['wb_price']:
                     bot.send_message(i,
@@ -223,7 +205,6 @@ def check_user_price_down(chat_id):
 
     else:
         while True:
-            bot.send_message(chat_id, f"цена wb {wb_price}, цена юзера {user_price_compare}, наш товар{data[chat_id]}")
             if wb_price < user_price_compare:
                 bot.send_message(chat_id, f"Успейте купить! Цена стала ниже,\nтеперь {wb_price}₽")
                 bot.send_message(chat_id, f"Для отслеживания нового товара напишите /start")
@@ -231,13 +212,12 @@ def check_user_price_down(chat_id):
             time.sleep(20)
 
 
-
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
     if call.data == 'price_down':
         chat_id = call.message.chat.id
-        bot.send_message(chat_id, f'Мы будем сравнивать цену. Бот пришлет сообщение, когда цена снизится')
         bot.send_message(chat_id, f'Сравниваю цену с ЦЕНОЙ Wildberries')
+        bot.send_message(chat_id, f'Пришлю сообщение, когда цена станет ниже')
         thread = threading.Thread(target=check_price_down, args=(chat_id,))
         thread.start()
 
@@ -256,7 +236,6 @@ def price_reply(message):
     bot.send_message(chat_id,
                      f'Мы зафиксировали вашу цену {user_price_compare}₽. Бот пришлет сообщение,когда цена на WB станет '
                      f'меньше указанной')
-    bot.send_message(chat_id, f'Сравниваю цену c ЦЕНОЙ юзера')
     thread2 = threading.Thread(target=check_user_price_down, args=(chat_id,))
     thread2.start()
 
